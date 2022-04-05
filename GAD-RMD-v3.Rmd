@@ -1,0 +1,100 @@
+---
+title: "Google Data Analytics Capstone Project"
+author: "Stephen Pham"
+date: "3/24/2022"
+output: html_document
+---
+```{r Setup, include=FALSE, results='hide'}
+library(knitr)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+### Loading Packages 
+
+```{r Load Library, echo=TRUE, results='hide'}
+library(readr)
+library(tidyverse)
+library(lubridate)
+library(skimr)
+library(janitor)
+library(data.table)
+library(tidyr)
+library(dplyr)
+```
+
+
+### Set Working Directory 
+
+```{r Working Directory, echo=TRUE, results='hide'}
+setwd("~/Desktop/Cyclist Dataset ")
+```
+
+### Combine CSV Files into One 
+
+```{r Combining CSV Files, echo=TRUE, results='hide'}
+files <- list.files(pattern = ".csv")
+temp <- lapply(files, fread, sep=",")
+data <- rbindlist(temp)
+write.csv(data,file="uncleaned_tripdata_2020-2021", row.names = FALSE)
+```
+
+### Remove N/A Values 
+
+```{r Drop NA, echo=TRUE, results='hide'}
+df2<- drop_na(data)
+```
+
+### Create New Data Frame for start_coordinate (500 highest total rides)
+
+```{r New Data Frame, echo=TRUE, results='hide'}
+start_station_coordinates<- select(df2, c(start_station_name, member_casual, start_lat,start_lng)) %>% 
+  group_by(start_station_name, member_casual, start_lat, start_lng) %>% 
+  summarize(num_rides = n(), .groups= "drop") %>% 
+  arrange(., desc(num_rides)) %>% 
+  slice(., 1:500)
+```
+
+### Calculate Ride Length and Set Weekdays 
+
+```{r, Calculate Ride Length, echo=TRUE, results='hide'}
+df2$date <- as.Date(df2$started_at)
+df2$year <- format(as.Date(df2$date), "%Y")
+df2$month <- format(as.Date(df2$date), "%m")
+df2$day <- format(as.Date(df2$date), "%d")
+
+df2 <- df2 %>% 
+  mutate(ride_length = difftime(ended_at, started_at, units = ("mins"))) %>% 
+  mutate(day_of_week = weekdays(as.Date(df2$started_at)))
+```
+
+### Filter Out Negative Ride Length
+
+```{r, Filter, echo=TRUE, results='hide'}
+df2 <- df2 %>% 
+  filter(ride_length > 0)
+```
+
+### Remove Duplicates 
+
+```{r, Remove Duplicate , echo=TRUE, results='hide'}
+df2 <- distinct(df2,ride_id,.keep_all = TRUE)
+```
+
+### Remove Unnecessary Columns 
+
+```{r, Remove Columns, echo=TRUE, results='hide'}
+df2<- select(df2,-c(start_station_id, end_station_id, start_station_name, end_station_name, start_lat, start_lng, end_lat, end_lng))
+```
+
+### Save Clean Data 
+
+```{r, Save Data, echo=TRUE, results='hide'}
+write.csv(df2,"2020-2021_clean_cyclistc_data.csv")
+write.csv(start_station_coordinates, "2020-2021_start_station_coordinates_data.csv")
+df2<- read_csv("2020-2021_clean_cyclistc_data.csv")
+start_station_coordinates<- read_csv("2020-2021_start_station_coordinates_data.csv")
+```
+
+### Data Visualization Using Tableau
+
+Link to Tableau Public <https://public.tableau.com/app/profile/stephen.pham3874#!/>
